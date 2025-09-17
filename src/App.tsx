@@ -35,7 +35,10 @@ type Answers = Partial<Record<(typeof QUESTIONS)[number]["id"], Answer>>;
 
 function classify(a: Answers) {
   const y = (k: keyof Answers) => a[k] === "yes";
+  const n = (k: keyof Answers) => a[k] === "no";
+  const u = (k: keyof Answers) => a[k] === "unknown" || a[k] === undefined;
 
+  // 1) Forced migration overrides
   if (y("enslaved_or_forced")) {
     return {
       label: "Enslaved / Forced Migration (distinct category)",
@@ -45,15 +48,21 @@ function classify(a: Answers) {
     } as const;
   }
 
-  if (y("arrived_during_colonial")) {
-    if (y("direct_participation")) {
-      return {
-        label: "Colonizer (foundational/participatory)",
-        explanation:
-          "Ancestors arrived during the colonial project and materially enabled or enforced it.",
-        color: "bg-red-50 border-red-200",
-      } as const;
-    }
+  // 2) Colonizer logic — consider arrival and/or participation
+  const arrivedDuring = y("arrived_during_colonial");
+  const participated = y("direct_participation");
+  const participatedUnknown = u("direct_participation");
+
+  if (arrivedDuring && (participated || participatedUnknown)) {
+    return {
+      label: "Colonizer (foundational/participatory)",
+      explanation:
+        "Ancestors arrived during the colonial project and materially enabled, enforced, or plausibly benefited from it.",
+      color: "bg-red-50 border-red-200",
+    } as const;
+  }
+
+  if (arrivedDuring && n("direct_participation")) {
     return {
       label: "Colonizer (arrival during colonial period)",
       explanation:
@@ -62,6 +71,16 @@ function classify(a: Answers) {
     } as const;
   }
 
+  if (!arrivedDuring && participated) {
+    return {
+      label: "Colonizer (participatory without arrival timing)",
+      explanation:
+        "Direct material enablement or enforcement of colonization counts even if arrival occurred later or timing is unknown.",
+      color: "bg-rose-50 border-rose-200",
+    } as const;
+  }
+
+  // 3) Immigrant branches
   if (y("post_entrenchment")) {
     return {
       label: "Immigrant (to a settler-colonial state)",
