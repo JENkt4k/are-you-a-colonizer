@@ -1,0 +1,69 @@
+name: Deploy Vite + PWA to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0 # Vite supports 20.19+ or 22.12+
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Compute the correct base path:
+      # - If this is a user/org page repo (owner.github.io) -> '/'
+      # - Otherwise (normal project page) -> '/<repo>/'
+      - name: Compute base path
+        id: base
+        shell: bash
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          OWNER_NAME="${GITHUB_REPOSITORY%%/*}"
+          if [[ "$REPO_NAME" == "${OWNER_NAME}.github.io" ]]; then
+            echo "VITE_BASE=/" >> $GITHUB_ENV
+            echo "Detected user/org Pages repo; using base=/"
+          else
+            echo "VITE_BASE=/${REPO_NAME}/" >> $GITHUB_ENV
+            echo "Detected project Pages repo; using base=/${REPO_NAME}/"
+          fi
+
+      - name: Build
+        env:
+          VITE_BASE: ${{ env.VITE_BASE }}
+        run: npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
