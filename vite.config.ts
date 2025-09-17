@@ -3,13 +3,16 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const BASE = process.env.VITE_BASE || '/';
+
 export default defineConfig({
+  base: BASE,
   plugins: [
     react(),
     tailwindcss(), // Tailwind v4 Vite plugin
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'Are You a Colonizer',
         short_name: 'Colonizer?',
