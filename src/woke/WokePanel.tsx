@@ -20,17 +20,31 @@ export function WokePanel({
         note="Playful present-day framing: we distinguish extraction from survival. We do not judge by ancestry or skin color. What matters is whether benefits come from property/extraction vs. labor, your constraints, and your stance on Infrastructure 2.0 (decoupling life support from land so more land returns to wildlife)."
         className={`${result.color}`}
       >
-        <div className="text-sm text-slate-700">
+        <div className="text-sm text-slate-700 space-y-2">
           <p>
             <span className="font-medium">{result.label}</span> — {result.explanation}
           </p>
-          {result.T >= 3 && (
-            <p className="mt-2 inline-block rounded-lg border px-2 py-1 text-xs bg-white">
-              Badge: <strong>Transformation Ally (Infra 2.0)</strong>
-            </p>
-          )}
+
+          {/* Badges */}
+          <div className="flex flex-wrap gap-2">
+            {result.T >= 3 && (
+              <span className="inline-block rounded-lg border px-2 py-1 text-xs bg-white">
+                Badge: <strong>Transformation Ally (Infra 2.0)</strong>
+              </span>
+            )}
+            {/* New: motive flag badge */}
+            {"flags" in result && result.flags?.motiveOnlyFlag && (
+              <span className="inline-block rounded-lg border border-rose-300 bg-rose-50 px-2 py-1 text-xs">
+                <strong>Colonizer flag (motive)</strong>: elective immigration for advantage
+              </span>
+            )}
+          </div>
+
+          {/* Optional debug chips; remove if not needed */}
+          {/* <div className="text-xs text-slate-500">B={result.B} T={result.T}</div> */}
         </div>
       </SectionCard>
+
 
       <div className="grid md:grid-cols-2 gap-4">
         <SectionCard
