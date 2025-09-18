@@ -17,7 +17,7 @@ export function WokePanel({
     <div className="space-y-4">
       <SectionCard
         title="Bonus Game: Woke Edition"
-        note="Playful present-day framing: we distinguish extraction from survival. No judgments by ancestry or skin color—what matters is whether benefits come from property/extraction versus labor, your constraints, and your stance on Infrastructure 2.0 (decoupling life support from land so more land returns to wildlife)."
+        note="Playful present-day framing: we distinguish extraction from survival. We do not judge by ancestry or skin color. What matters is whether benefits come from property/extraction vs. labor, your constraints, and your stance on Infrastructure 2.0 (decoupling life support from land so more land returns to wildlife)."
         className={`${result.color}`}
       >
         <div className="text-sm text-slate-700">
@@ -101,9 +101,35 @@ export function WokePanel({
               onChange={(e) => onChange({ infra2: Number(e.currentTarget.value) as 0|1|2|3|4 })}
               className="w-full"
             />
-            <span className="text-xs text-slate-600 w-24 text-right">
+            <span className="text-xs text-slate-600 w-28 text-right">
               {["Oppose","Skeptical","Neutral","Support","Strongly"][value.infra2 ?? 2]}
             </span>
+          </div>
+        </SectionCard>
+
+        {/* NEW: W7 Migration Motive */}
+        <SectionCard
+          title="W7. Migration Motive (if immigrant)"
+          note="If you immigrated (or your parents did), was entry mainly elective for financial opportunity, mixed, or driven by survival needs (war, famine, persecution, climate)?"
+        >
+          <div className="flex flex-wrap gap-3 items-center">
+            {[
+              ["opportunity","Opportunity"],
+              ["mixed","Mixed"],
+              ["survival","Survival"],
+              ["unknown","Unknown"],
+            ].map(([val, label]) => (
+              <label key={val} className="inline-flex items-center gap-1">
+                <input
+                  type="radio"
+                  className="accent-black"
+                  name="migration_motive"
+                  checked={value.migration_motive === (val as any)}
+                  onChange={() => onChange({ migration_motive: val as any })}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
           </div>
         </SectionCard>
       </div>
