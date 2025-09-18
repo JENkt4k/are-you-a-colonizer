@@ -1,262 +1,24 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
+import { SectionCard } from "./components/SectionCard";
+import { RadioRow } from "./components/RadioRow";
+import { useLocalStorage } from "./hooks/useLocalStorage";
 
+import { QUESTIONS } from "./history/questions";
+import type { Answers } from "./history/types";
+import { classifyHistorical } from "./history/classify";
 
-type Answer = "yes" | "no" | "unknown";
+import type { WokeAnswers } from "./woke/types";
+import { WokePanel } from "./woke/WokePanel";
 
-const QUESTIONS = [
-  {
-    id: "arrived_during_colonial",
-    q: "Did any direct ancestors arrive in the territory during its active colonial period (e.g., initial settlement, land seizure, imposition of foreign rule)?",
-    help: "Examples (US): ~1607–1776 for British settler colonization on the mainland; local ranges vary by region.",
-  },
-  {
-    id: "direct_participation",
-    q: "Did those ancestors directly participate in, materially enable, or legally enforce the colonial project (e.g., land grants, militia, administration)?",
-    help: "Benefiting as an origin-layer settler, grantee, or colonial officer counts as participation.",
-  },
-  {
-    id: "post_entrenchment",
-    q: "If ancestors arrived later, did they arrive only after independence or after colonial structures were fully entrenched?",
-    help: "E.g., immigrated to an already-formed settler state.",
-  },
-  {
-    id: "enslaved_or_forced",
-    q: "Were your ancestors enslaved, indentured under coercive terms, or forcibly transported (no meaningful agency)?",
-    help: "Forced transport is categorized separately from colonizer/immigrant.",
-  },
-  {
-    id: "origin_colonized_after_left",
-    q: "Did the country of origin begin its own external colonization only after your ancestors had already emigrated?",
-    help: "E.g., if Germany began colonial ventures after your family left, they did not participate in those ventures.",
-  },
-] as const;
-
-type Answers = Partial<Record<(typeof QUESTIONS)[number]["id"], Answer>>;
-
-function classify(a: Answers) {
-  const y = (k: keyof Answers) => a[k] === "yes";
-  const n = (k: keyof Answers) => a[k] === "no";
-  const u = (k: keyof Answers) => a[k] === "unknown" || a[k] === undefined;
-
-  // 1) Forced migration overrides
-  if (y("enslaved_or_forced")) {
-    return {
-      label: "Enslaved / Forced Migration (distinct category)",
-      explanation:
-        "Lineage was transported without agency; this does not fit colonizer or immigrant. Historical harms differ categorically.",
-      color: "bg-amber-50 border-amber-200",
-    } as const;
-  }
-
-  // 2) Colonizer logic — consider arrival and/or participation
-  const arrivedDuring = y("arrived_during_colonial");
-  const participated = y("direct_participation");
-  const participatedUnknown = u("direct_participation");
-
-  if (arrivedDuring && (participated || participatedUnknown)) {
-    return {
-      label: "Colonizer (foundational/participatory)",
-      explanation:
-        "Ancestors arrived during the colonial project and materially enabled, enforced, or plausibly benefited from it.",
-      color: "bg-red-50 border-red-200",
-    } as const;
-  }
-
-  if (arrivedDuring && n("direct_participation")) {
-    return {
-      label: "Colonizer (arrival during colonial period)",
-      explanation:
-        "Ancestors arrived while colonization was ongoing. Even without formal office, they were part of settler expansion.",
-      color: "bg-rose-50 border-rose-200",
-    } as const;
-  }
-
-  if (!arrivedDuring && participated) {
-    return {
-      label: "Colonizer (participatory without arrival timing)",
-      explanation:
-        "Direct material enablement or enforcement of colonization counts even if arrival occurred later or timing is unknown.",
-      color: "bg-rose-50 border-rose-200",
-    } as const;
-  }
-
-  // 3) Immigrant branches
-  if (y("post_entrenchment")) {
-    return {
-      label: "Immigrant (to a settler-colonial state)",
-      explanation:
-        "Arrival occurred after colonial structures were established or post-independence; did not found or enforce colonization.",
-      color: "bg-green-50 border-green-200",
-    } as const;
-  }
-
-  if (y("origin_colonized_after_left")) {
-    return {
-      label: "Immigrant (origin colonized elsewhere later)",
-      explanation:
-        "Country of origin undertook separate colonization only after your ancestors left; lineage not implicated in those ventures.",
-      color: "bg-emerald-50 border-emerald-200",
-    } as const;
-  }
-
-  return {
-    label: "Inconclusive (need more data)",
-    explanation:
-      "Provide dates/locations of arrival, legal status, and roles. Local colonial period boundaries vary by region.",
-    color: "bg-slate-50 border-slate-200",
-  } as const;
-}
-
-function RadioRow({
-  value,
-  onChange,
-  label,
-}: {
-  value: Answer | undefined;
-  onChange: (v: Answer) => void;
-  label: string;
-}) {
-  return (
-    <div className="flex gap-3 items-center">
-      {(["yes", "no", "unknown"] as Answer[]).map((opt) => (
-        <label key={opt} className="inline-flex items-center gap-1">
-          <input
-            type="radio"
-            className="accent-black"
-            name={label}
-            checked={value === opt}
-            onChange={() => onChange(opt)}
-          />
-          <span className="capitalize">{opt}</span>
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function useLocalStorage<T>(key: string, initial: T) {
-  const [state, setState] = useState<T>(() => {
-    try {
-      const s = localStorage.getItem(key);
-      return s ? (JSON.parse(s) as T) : initial;
-    } catch {
-      return initial;
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(state));
-    } catch { /* empty */ }
-  }, [key, state]);
-  return [state, setState] as const;
-}
-
-export default function App() {
-  const [answers, setAnswers] = useLocalStorage<Answers>(
-    "colonizer-app-answers",
-    {}
-  );
-
-  const result = useMemo(() => classify(answers), [answers]);
-  const reset = () => setAnswers({});
-
-  return (
-    <div className="min-h-screen bg-white text-black">
-      <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl sm:text-2xl font-bold">Are You a Colonizer?</h1>
-          <a
-            href="#about"
-            className="text-sm underline decoration-dotted decoration-1"
-          >
-            About
-          </a>
-        </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        <section className={`border rounded-2xl p-4 mb-6 ${result.color}`}>
-          <h2 className="text-lg font-semibold">Result</h2>
-          <p className="mt-1 text-sm text-slate-700">
-            <span className="font-medium">{result.label}</span> — {result.explanation}
-          </p>
-          <div className="mt-3 text-xs text-slate-600">
-            <p>
-              Note: This tool applies historical criteria. It does not assess personal
-              beliefs or present-day ethics.
-            </p>
-          </div>
-        </section>
-
-        <section className="space-y-5">
-          {QUESTIONS.map((item) => (
-            <div key={item.id} className="border rounded-2xl p-4">
-              <div className="flex flex-col gap-2">
-                <div>
-                  <h3 className="font-semibold">{item.q}</h3>
-                  <p className="text-sm text-slate-600">{item.help}</p>
-                </div>
-                <RadioRow
-                  value={answers[item.id]}
-                  onChange={(v) => setAnswers((s) => ({ ...s, [item.id]: v }))}
-                  label={item.id}
-                />
-              </div>
-            </div>
-          ))}
-        </section>
-
-        <div className="mt-6 flex gap-2 flex-wrap">
-          <button
-            onClick={reset}
-            className="px-3 py-2 rounded-xl border border-slate-300 shadow-sm hover:shadow"
-          >
-            Reset
-          </button>
-          <ShareButton answers={answers} />
-        </div>
-
-        <section id="about" className="mt-10 border-t pt-6 text-sm text-slate-700 space-y-3">
-          <p>
-            <strong>Definitions used.</strong> Colonizer: lineage that arrived during and
-            materially contributed to a colonial project (settler expansion, administration,
-            or enforcement). Immigrant: lineage that arrived after colonial structures were
-            entrenched or post-independence; not founders of the project. Forced migration
-            is a distinct category.
-          </p>
-          <p>
-            <strong>Regional variation.</strong> Colonial period boundaries vary by region
-            (e.g., U.S. mainland British settler colonization roughly 1607–1776; other regions differ).
-            For precise assessment, plug in specific places and dates.
-          </p>
-        </section>
-      </main>
-
-      <footer className="max-w-3xl mx-auto px-4 py-10 text-xs text-slate-500">
-        <p>© {new Date().getFullYear()} Are You a Colonizer. Offline-ready once installed.</p>
-      </footer>
-    </div>
-  );
-}
-
-function ShareButton({ answers }: { answers: Answers }) {
+function ShareButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  const text = useMemo(() => {
-    const pairs = Object.entries(answers)
-      .map(([k, v]) => `${k}=${v}`)
-      .join("&");
-    const summary = `Are You a Colonizer? My answers: ${pairs || "(none)"}.`;
-    return summary;
-  }, [answers]);
-
   const doCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch { /* empty */ }
+    } catch {}
   };
-
   return (
     <button
       onClick={doCopy}
@@ -265,5 +27,116 @@ function ShareButton({ answers }: { answers: Answers }) {
     >
       {copied ? "Copied!" : "Copy Summary"}
     </button>
+  );
+}
+
+export default function App() {
+  // Historical
+  const [answers, setAnswers] = useLocalStorage<Answers>("colonizer-app-answers-v3", {});
+  const hist = useMemo(() => classifyHistorical(answers), [answers]);
+
+  // Woke Edition
+  const [wokeOpen, setWokeOpen] = useState(false);              // <-- NEW: collapsed by default
+  const [woke, setWoke] = useLocalStorage<WokeAnswers>("colonizer-app-woke-v2", {});
+
+  const reset = () => setAnswers({});
+  const shareText = useMemo(() => {
+    const q = new URLSearchParams(
+      Object.entries(answers)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, String(v)])
+    ).toString();
+    return `Are You a Colonizer?\nHistorical: ${hist.label}\nAnswers: ${q || "(none)"}\nBonus (Woke): hidden by default — open in app.`;
+  }, [answers, hist.label]);
+
+  return (
+    <div className="min-h-screen bg-white text-black">
+      <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <h1 className="text-xl sm:text-2xl font-bold">Are You a Colonizer?</h1>
+          <a href="#about" className="text-sm underline decoration-dotted decoration-1">About</a>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        {/* Historical result */}
+        <SectionCard className={`${hist.color}`} title="Result (Historical)">
+          <p className="mt-1 text-sm text-slate-700">
+            <span className="font-medium">{hist.label}</span> — {hist.explanation}
+          </p>
+          <p className="mt-2 text-xs text-slate-600">
+            Scope: historical lineage and structural participation. This classifies position in systems; it isn't a moral score.
+          </p>
+        </SectionCard>
+
+        {/* Historical questions */}
+        <div className="mt-5 grid md:grid-cols-2 gap-4">
+          {QUESTIONS.map((item) => (
+            <SectionCard key={item.id} title={item.q} note={item.help}>
+              <RadioRow
+                name={item.id}
+                value={answers[item.id]}
+                onChange={(v) => setAnswers((s) => ({ ...s, [item.id]: v }))}
+              />
+            </SectionCard>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="mt-6 flex gap-2 flex-wrap">
+          <button
+            onClick={reset}
+            className="px-3 py-2 rounded-xl border border-slate-300 shadow-sm hover:shadow"
+          >
+            Reset Historical
+          </button>
+          <ShareButton text={shareText} />
+        </div>
+
+        {/* Divider */}
+        <div className="my-10 h-px bg-slate-200" />
+
+        {/* Toggle for Woke Edition */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Bonus Game: Woke Edition</h2>
+          <button
+            onClick={() => setWokeOpen((v) => !v)}
+            className="px-3 py-2 rounded-xl border border-slate-300 shadow-sm hover:shadow text-sm"
+            aria-expanded={wokeOpen}
+            aria-controls="woke-panel"
+          >
+            {wokeOpen ? "Hide Woke Edition" : "Play Woke Edition"}
+          </button>
+        </div>
+
+        {/* Collapsible container */}
+        <div
+          id="woke-panel"
+          className={`transition-all duration-300 overflow-hidden ${wokeOpen ? "max-h-[9999px] mt-4" : "max-h-0"}`}
+        >
+          <div className="md:grid md:grid-cols-2 md:gap-6">
+            <div className="md:col-span-2">
+              <WokePanel value={woke} onChange={(patch) => setWoke((s) => ({ ...s, ...patch }))} />
+            </div>
+          </div>
+        </div>
+
+        <section id="about" className="mt-10 border-t pt-6 text-sm text-slate-700 space-y-3">
+          <p>
+            <strong>Historical definitions.</strong> Colonizer = lineages arriving during and materially contributing to a colonial project.
+            Immigrant = arrival after entrenchment/independence. Forced migration is categorized separately.
+          </p>
+          <p>
+            <strong>Woke Edition.</strong> We distinguish <em>extractive benefit</em> (property/speculation/resource rights)
+            from <em>survival participation</em> (wages, no inheritance), recognize <em>non-benefited descendants</em>,
+            and add <em>Infrastructure 2.0</em> (decoupling life support from land; wildlife return).
+          </p>
+        </section>
+
+        <footer className="py-10 text-xs text-slate-500">
+          <p>© {new Date().getFullYear()} Are You a Colonizer. Offline-ready once installed.</p>
+        </footer>
+      </main>
+    </div>
   );
 }
