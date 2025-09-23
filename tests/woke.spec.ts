@@ -37,7 +37,6 @@ describe("Woke classifier – motive red flag & invariants", () => {
     };
     const r = scoreWoke(a);
     expect(r.code === "BENEFICIARY" || r.code === "PARTICIPANT").toBe(true);
-    // @ts-expect-error flags are present by design
     expect(r.flags?.motiveOnlyFlag).toBe(true);
   });
 
